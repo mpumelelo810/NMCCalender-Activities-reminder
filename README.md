@@ -64,6 +64,10 @@ The design uses Cloudflare Workers, D1 and Cron with no external backend or noti
 - All event SQL uses bound parameters; event text is escaped before rendering.
 - No database is dropped and no existing production rows are deleted by the source changes.
 
+## Outlook availability suggestions
+
+From the authorised calendar editor, upload an Outlook `.ics` export under **Use your Outlook free dates**. The browser reads only all-day calendar entries whose summary is exactly `Free`, deduplicates their dates, and lets the organiser select one to prefill the activity date field. The file is processed locally in the browser; availability dates are not uploaded, saved to D1, published to the public calendar, or turned into activities automatically. Reloading the editor clears the imported suggestions, so upload the file again when needed.
+
 ## WhatsApp reminder delivery
 
 The Worker contains an opt-in WhatsApp Cloud API adapter. It remains disabled until the account owner supplies valid Meta WhatsApp Business Platform configuration. A scheduled run at 07:00 Eswatini/SAST time prepares reminders for events today and tomorrow; Monday also generates the Saturday preview. The daily reminder is delivered to each configured recipient.
