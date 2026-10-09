@@ -13,7 +13,7 @@ async function api(req,env,url){
  const p=url.pathname,m=req.method;
  if(p==='/api/events'&&m==='GET'){
   const q=url.searchParams.get('from')||sastDate(new Date()),from=/^\d{4}-\d{2}-\d{2}$/.test(q)?q:sastDate(new Date());
-  const {results}=await env.DB.prepare('SELECT id,title,date,start_time,end_time,location,description,category FROM events WHERE published=1 AND cancelled=0 AND date>=? ORDER BY date,start_time LIMIT 200').bind(from).all();
+  const {results}=await env.DB.prepare('SELECT id,title,date,start_time,end_time,location,description,category,all_day FROM events WHERE published=1 AND cancelled=0 AND date>=? ORDER BY date,start_time LIMIT 200').bind(from).all();
   return json(results,200,{'cache-control':'public, max-age=60'});
  }
  if(m!=='GET'){
@@ -53,13 +53,13 @@ async function api(req,env,url){
  if(p==='/api/admin/runs'&&m==='GET')return json((await env.DB.prepare('SELECT id,job,report_date,subject,body,status,detail,created_at FROM notification_runs ORDER BY id DESC LIMIT 50').all()).results);
  if(p==='/api/admin/events'&&m==='POST'){
   const v=validateEvent(await req.json().catch(()=>({})));if(!v.ok)return json({errors:v.errors},400);const id=crypto.randomUUID(),e=v.value,t=now();
-  await env.DB.prepare('INSERT INTO events(id,title,date,start_time,end_time,location,description,category,published,cancelled,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)').bind(id,e.title,e.date,e.start_time,e.end_time,e.location,e.description,e.category,e.published,e.cancelled,t,t).run();
+  await env.DB.prepare('INSERT INTO events(id,title,date,start_time,end_time,location,description,category,all_day,published,cancelled,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)').bind(id,e.title,e.date,e.start_time,e.end_time,e.location,e.description,e.category,e.all_day,e.published,e.cancelled,t,t).run();
   await audit(env,who.admin_id,'create_event',id);return json({id},201);
  }
  const x=p.match(/^\/api\/admin\/events\/([0-9a-f-]{36})$/);
  if(x&&m==='PUT'){
   const v=validateEvent(await req.json().catch(()=>({})));if(!v.ok)return json({errors:v.errors},400);const e=v.value;
-  const r=await env.DB.prepare('UPDATE events SET title=?,date=?,start_time=?,end_time=?,location=?,description=?,category=?,published=?,cancelled=?,updated_at=? WHERE id=?').bind(e.title,e.date,e.start_time,e.end_time,e.location,e.description,e.category,e.published,e.cancelled,now(),x[1]).run();
+  const r=await env.DB.prepare('UPDATE events SET title=?,date=?,start_time=?,end_time=?,location=?,description=?,category=?,all_day=?,published=?,cancelled=?,updated_at=? WHERE id=?').bind(e.title,e.date,e.start_time,e.end_time,e.location,e.description,e.category,e.all_day,e.published,e.cancelled,now(),x[1]).run();
   if(!r.meta.changes)return json({error:'Not found.'},404);await audit(env,who.admin_id,'update_event',x[1]);return json({ok:true});
  }
  if(x&&m==='DELETE'){
