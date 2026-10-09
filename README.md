@@ -6,7 +6,7 @@ Mobile-friendly public calendar and single-administrator event manager using Clo
 - Source implementation: Worker API, public read-only calendar, admin sign-in, event CRUD/publishing, D1 migration, UTC cron, generated-notification log, and unit tests.
 - Authentication: PBKDF2-SHA256 with per-password random salt; random session cookie is HttpOnly, Secure and SameSite=Strict; only its SHA-256 hash is stored. No public administrator registration.
 - Reminders: Cron `0 5 * * *` UTC = 07:00 in `Africa/Johannesburg` (SAST). Daily reminder (today/tomorrow, omitted when empty), Monday preview of all published events on the current week's Saturday (empty Saturday gets an explicit preview), and agenda for published, non-cancelled meetings today. `UNIQUE(job, report_date)` makes execution idempotent.
-- Delivery: deliberately disabled (`NOTIFY_PROVIDER=none`). The UI accurately labels generated messages; no message is sent until a provider, recipient policy, and credentials are selected and verified.
+- Delivery: an optional WhatsApp Cloud API adapter supports approved template messages to each configured recipient. It remains disabled until Meta credentials/template approval and an explicit Worker config switch are provided. Per-recipient delivery status and retry support are included.
 - Recovery: export via Wrangler to a private location; rehearse import/restore on a separate D1 database before production. Restoration is account-owner CLI only at this stage, not a public API feature.
 
 ## Setup / local testing
@@ -45,3 +45,25 @@ The design uses Cloudflare Workers, D1 and Cron with no external backend or noti
 - All admin API endpoints validate a server-side session; client UI controls are not authorization.
 - All event SQL uses bound parameters; event text is escaped before rendering.
 - No database is dropped and no existing production rows are deleted by the source changes.
+
+## WhatsApp reminder delivery
+
+The Worker contains an opt-in WhatsApp Cloud API adapter. It remains disabled until the account owner supplies valid Meta WhatsApp Business Platform configuration. A scheduled run at 07:00 Eswatini/SAST time prepares reminders for events today and tomorrow; Monday also generates the Saturday preview. The daily reminder is delivered to each configured recipient.
+
+### Meta setup required once
+
+1. In Meta for Developers, create/use an app with the WhatsApp product and connect a WhatsApp Business Account and a sending phone number. Record the **Phone Number ID** and generate a production access token with the permissions required by the current Meta Cloud API.
+2. Create and get approval for a Utility message template called `nmcc_youth_activity_reminder` in English (US). Its **body must contain exactly two text variables**:
+   ```
+   Ngculwini Miracle Centre — Youth Activities Calendar
+   {{1}}
+
+   {{2}}
+
+   This is an automated calendar reminder. Please check the calendar for updates.
+   ```
+   The first variable is the reminder subject and the second is the reminder details. The template name and language must match the approved template exactly. Meta approval, recipient opt-in and applicable WhatsApp policies are required.
+3. Add these as **Worker secrets** (never commit them): `WHATSAPP_ACCESS_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID`, `WHATSAPP_API_VERSION`, `WHATSAPP_TEMPLATE_NAME`, `WHATSAPP_TEMPLATE_LANGUAGE`, and `WHATSAPP_RECIPIENTS`. For `WHATSAPP_RECIPIENTS`, use comma-separated full international numbers in digits-only format, including the country code. Verify that both numbers are correct and WhatsApp-enabled before activating delivery.
+4. Set the Worker plain-text variable `NOTIFY_PROVIDER` to `whatsapp_cloud_api`, then run one controlled test from the account owner's secure environment. Check the notification log and Meta message status before relying on production reminders.
+
+The code records each recipient's result separately and retries failed/generated notification runs on the next scheduled execution. A status of `sent` means Meta accepted the API request, not that the recipient's handset has confirmed delivery.
