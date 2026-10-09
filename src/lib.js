@@ -9,13 +9,14 @@ export const validDate = s => /^\d{4}-\d{2}-\d{2}$/.test(s||'') && new Date(pars
 export const validTime = s => /^([01]\d|2[0-3]):[0-5]\d$/.test(s||'');
 export function validateEvent(b={}) {
  const errors=[], str=(v,n)=>String(v??'').trim().slice(0,n);
- const value={title:str(b.title,120),date:str(b.date,10),start_time:str(b.start_time,5),end_time:str(b.end_time,5)||null,location:str(b.location,200),description:str(b.description,2000),category:b.category==='meeting'?'meeting':'activity',published:b.published?1:0,cancelled:b.cancelled?1:0};
+ const allDay=b.all_day===true||b.all_day===1||b.all_day==='1'||b.all_day==='true'||b.all_day==='on';
+ const value={title:str(b.title,120),date:str(b.date,10),start_time:allDay?'00:00':str(b.start_time,5),end_time:allDay?null:(str(b.end_time,5)||null),location:str(b.location,200),description:str(b.description,2000),category:b.category==='meeting'?'meeting':'activity',all_day:allDay?1:0,published:b.published?1:0,cancelled:b.cancelled?1:0};
  if(!value.title)errors.push('Enter a title.'); if(!validDate(value.date))errors.push('Enter a real date (YYYY-MM-DD).');
- if(!validTime(value.start_time))errors.push('Enter a start time like 14:30.'); if(value.end_time&&!validTime(value.end_time))errors.push('Enter an end time like 16:00, or leave it empty.');
- if(value.end_time&&validTime(value.start_time)&&value.end_time<=value.start_time)errors.push('End time must be after the start time.');
+ if(!allDay&&!validTime(value.start_time))errors.push('Enter a start time like 14:30.'); if(!allDay&&value.end_time&&!validTime(value.end_time))errors.push('Enter an end time like 16:00, or leave it empty.');
+ if(!allDay&&value.end_time&&validTime(value.start_time)&&value.end_time<=value.start_time)errors.push('End time must be after the start time.');
  return {ok:!errors.length,errors,value};
 }
-const line=e=>`${e.start_time}${e.end_time?'-'+e.end_time:''} ${e.title}${e.location?' at '+e.location:''}${e.description?'\n  '+e.description:''}`;
+const line=e=>`${(e.all_day===1||e.all_day===true)?'':`${e.start_time}${e.end_time?'-'+e.end_time:''} `}${e.title}${e.location?' at '+e.location:''}${e.description?'\n  '+e.description:''}`;
 const eligible=e=>e.published===1||e.published===true ? !(e.cancelled===1||e.cancelled===true) : false;
 export function buildMessages(today,events) {
  const on=d=>events.filter(e=>eligible(e)&&e.date===d).sort((a,b)=>a.start_time.localeCompare(b.start_time));
