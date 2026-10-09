@@ -61,6 +61,6 @@ export async function runJobs(env,when){
  }
 }
 export default {
- async fetch(req,env){const url=new URL(req.url);try{return url.pathname.startsWith('/api/')?await api(req,env,url):new Response(PAGE,{headers:{'content-type':'text/html; charset=utf-8','x-content-type-options':'nosniff','referrer-policy':'strict-origin-when-cross-origin','x-frame-options':'DENY','content-security-policy':\"default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'\"}});}catch(err){console.error('request_failed',String(err?.message||err));return json({error:'Something went wrong.'},500);}},
+ async fetch(req,env){const url=new URL(req.url);try{return url.pathname.startsWith('/api/')?await api(req,env,url):new Response(PAGE,{headers:{'content-type':'text/html; charset=utf-8','x-content-type-options':'nosniff','referrer-policy':'strict-origin-when-cross-origin','x-frame-options':'DENY','content-security-policy':"default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'"}});}catch(err){console.error('request_failed',String(err?.message||err));return json({error:'Something went wrong.'},500);}},
  async scheduled(event,env,ctx){ctx.waitUntil(runJobs(env,new Date(event.scheduledTime)));}
 };
