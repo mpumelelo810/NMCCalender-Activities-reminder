@@ -20,15 +20,29 @@ npm run dev
 ```
 
 ## Production provisioning
-1. Create the D1 database (already provisioned for this project): `youth-calendar`, ID `852cdbbe-24c1-4064-ac08-4efef4612c2b`.
-2. Apply migration: `npx wrangler d1 migrations apply youth-calendar --remote`.
-3. Create the first administrator without committing credentials:
+
+1. Confirm the remote database migration list before applying new migrations. The phone-role and delivery-tracking schema are included in `migrations/`.
+2. Install dependencies and provision the two initial phone-based accounts from a trusted machine. The password is entered hidden in the terminal; the script prints SQL containing only a PBKDF2 hash, not the password. For the requested phone-plus-name format, enter each person's password as their phone number without the leading `+`, followed by `@`, followed by their name without spaces.
+   
+   Administrator:
    ```sh
-   ADMIN_PASSWORD='use-a-unique-passphrase-of-12-or-more-characters' node scripts/make-admin.mjs admin@example.org
-   npx wrangler d1 execute youth-calendar --remote --command "<paste the SQL printed by the script>"
+   read -rsp "Administrator password: " ADMIN_PASSWORD; echo
+   ADMIN_PASSWORD="$ADMIN_PASSWORD" node scripts/make-admin.mjs "+2687767261" "mpumelelo" administrator > /tmp/nmcc-admin.sql
+   unset ADMIN_PASSWORD
+   npx wrangler d1 execute youth-calendar --remote --command "$(cat /tmp/nmcc-admin.sql)"
+   rm -f /tmp/nmcc-admin.sql
    ```
-4. Deploy with `npx wrangler deploy`; check the deployed URL, public event API, admin login, D1 binding and Cron schedule. No default admin/password exists.
-5. Add login rate limiting at Cloudflare edge before wider public use. The login endpoint has a D1-backed throttle as a follow-up hardening item if edge rate limiting is unavailable.
+   
+   Organiser:
+   ```sh
+   read -rsp "Organiser password: " ADMIN_PASSWORD; echo
+   ADMIN_PASSWORD="$ADMIN_PASSWORD" node scripts/make-admin.mjs "+26879429229" "mancoba" organiser > /tmp/nmcc-organiser.sql
+   unset ADMIN_PASSWORD
+   npx wrangler d1 execute youth-calendar --remote --command "$(cat /tmp/nmcc-organiser.sql)"
+   rm -f /tmp/nmcc-organiser.sql
+   ```
+3. The first account must have role `administrator`; it can then add/deactivate organisers from the web UI. Verify each phone number before running provisioning, and never commit the temporary SQL files.
+4. Check the deployed URL, `/api/events`, login, D1 binding and Cron schedule. The application must have at least one account with the `administrator` role before protected event-management screens can be used.
 
 ## Backup / restore
 - Export: `npx wrangler d1 export youth-calendar --remote --output ./backup-YYYY-MM-DD.sql`.
