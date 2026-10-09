@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { PAGE } from '../src/page.js';
 
 test('the calendar page inline JavaScript parses successfully', () => {
-  const scripts = [...PAGE.matchAll(/<script>([\\s\\S]*?)<\\/script>/g)]
+  const scripts = [...PAGE.matchAll(/<script>([\s\S]*?)<\/script>/g)]
     .map(match => match[1])
     .filter(Boolean);
 
@@ -11,5 +11,5 @@ test('the calendar page inline JavaScript parses successfully', () => {
   for (const script of scripts) {
     assert.doesNotThrow(() => new Function(script));
   }
-  assert.doesNotMatch(PAGE, /\\}\\\\nlet events=/, 'Do not leave a literal \\n between page functions');
+  assert.doesNotMatch(PAGE, /\}\\nlet events=/, 'Do not leave a literal backslash-n between page functions');
 });
