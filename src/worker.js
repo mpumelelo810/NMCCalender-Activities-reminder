@@ -37,16 +37,16 @@ async function api(req,env,url){
  if(p==='/api/admin/users'&&who.role!=='administrator')return json({error:'Administrator permission required.'},403);
  if(p==='/api/admin/users'&&m==='GET')return json((await env.DB.prepare('SELECT phone,name,role,active,created_at FROM admins ORDER BY role, name').all()).results);
  if(p==='/api/admin/users'&&m==='POST'){
-  const b=await req.json().catch(()=>({})),phone=String(b.phone||'').trim().replace(/[\\s()-]/g,''),name=String(b.name||'').trim().slice(0,80);
-  if(!/^\\+268[0-9]{7,9}$/.test(phone)||!name)return json({error:'Enter a valid Eswatini phone number and name.'},400);
-  const {hashPassword}=await import('./lib.js'),password=phone.replace(/^\\+/,'')+'@'+name.toLowerCase().replace(/\\s+/g,'');
+  const b=await req.json().catch(()=>({})),phone=String(b.phone||'').trim().replace(/[\s()-]/g,''),name=String(b.name||'').trim().slice(0,80);
+  if(!/^\+268[0-9]{7,9}$/.test(phone)||!name)return json({error:'Enter a valid Eswatini phone number and name.'},400);
+  const {hashPassword}=await import('./lib.js'),password=phone.replace(/^\+/,'')+'@'+name.toLowerCase().replace(/\s+/g,'');
   const exists=await env.DB.prepare('SELECT id FROM admins WHERE phone=?').bind(phone).first();if(exists)return json({error:'That phone number already has an account.'},409);
   const t=now();await env.DB.prepare('INSERT INTO admins(id,email,phone,name,role,active,password_hash,created_at) VALUES(?,?,?,?,\'organiser\',1,?,?)').bind(phone,phone.replace(/[^0-9]/g,'')+'@nmcc.local',phone,name,await hashPassword(password),t).run();
   await audit(env,who.admin_id,'create_organiser',phone);return json({ok:true,phone,name,role:'organiser',passwordFormat:'phone number without +, followed by @ and the name without spaces'} ,201);
  }
- const userPath=p.match(/^\\/api\\/admin\\/users\\/(\\+268[0-9]{7,9})$/);
+ const userPath=p.match(/^\/api\/admin\/users\/(.+)$/);
  if(userPath&&m==='PATCH'){
-  const b=await req.json().catch(()=>({})),target=userPath[1];if(target===who.phone)return json({error:'You cannot deactivate your own account here.'},400);
+  const b=await req.json().catch(()=>({})),target=decodeURIComponent(userPath[1]);if(target===who.phone)return json({error:'You cannot deactivate your own account here.'},400);
   const active=b.active?1:0;const r=await env.DB.prepare('UPDATE admins SET active=? WHERE phone=? AND role=\'organiser\'').bind(active,target).run();if(!r.meta.changes)return json({error:'Organiser not found.'},404);
   if(!active)await env.DB.prepare('DELETE FROM sessions WHERE admin_id=?').bind(target).run();await audit(env,who.admin_id,active?'activate_organiser':'deactivate_organiser',target);return json({ok:true});
  }
