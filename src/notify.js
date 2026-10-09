@@ -1,8 +1,10 @@
 // WhatsApp Cloud API delivery adapter for NMCC reminders.
 // Requires approved template + Cloudflare secrets; never logs access tokens.
-const normalizeRecipients = raw => [...new Set(String(raw || "")
-  .split(",").map(v => v.trim().replace(/[^0-9]/g, ""))
-  .filter(v => /^[1-9][0-9]{7,14}$/.test(v)) )];
+const parseRecipients = raw => {
+  const entered = String(raw || "").split(",").map(v => v.trim()).filter(Boolean);
+  const digits = entered.map(v => v.replace(/[^0-9]/g, ""));
+  return { recipients: [...new Set(digits)], invalid: digits.filter(v => !/^268[0-9]{8}$/.test(v)) };
+};
 
 const safeDetail = (value, max = 300) => String(value || "Unknown delivery error").replace(/[\r\n\t]+/g, " ").slice(0, max);
 
@@ -66,9 +68,11 @@ export async function deliver(env, msg) {
     return { status: "failed", detail: "WhatsApp setup incomplete: " + missing.join(", ") + "." };
   }
 
-  const recipients = normalizeRecipients(env.WHATSAPP_RECIPIENTS);
-  if (!recipients.length) {
-    return { status: "failed", detail: "No valid WhatsApp recipients configured; use full international numbers with country code." };
+  const parsedRecipients = parseRecipients(env.WHATSAPP_RECIPIENTS);
+  const recipients = parsedRecipients.recipients;
+  if (!recipients.length) return { status: "failed", detail: "No WhatsApp recipients configured." };
+  if (parsedRecipients.invalid.length) {
+    return { status: "failed", detail: "Recipient configuration contains an invalid Eswatini number. Check both full numbers: country code 268 followed by exactly 8 national digits." };
   }
 
   let accepted = 0;
