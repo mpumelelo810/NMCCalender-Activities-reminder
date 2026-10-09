@@ -1,5 +1,6 @@
 import {validateEvent,sastDate,addDays,upcomingSaturday,buildMessages,verifyPassword} from './lib.js';
 import {deliver} from './notify.js';
+import {PAGE} from './page.js';
 const now=()=>new Date().toISOString();
 const json=(data,status=200,headers={})=>new Response(JSON.stringify(data),{status,headers:{'content-type':'application/json; charset=utf-8','cache-control':'no-store',...headers}});
 const hex=async s=>[...new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(s)))].map(x=>x.toString(16).padStart(2,'0')).join('');
@@ -60,6 +61,6 @@ export async function runJobs(env,when){
  }
 }
 export default {
- async fetch(req,env){const url=new URL(req.url);try{return url.pathname.startsWith('/api/')?await api(req,env,url):env.ASSETS.fetch(req);}catch(err){console.error('request_failed',String(err?.message||err));return json({error:'Something went wrong.'},500);}},
+ async fetch(req,env){const url=new URL(req.url);try{return url.pathname.startsWith('/api/')?await api(req,env,url):new Response(PAGE,{headers:{'content-type':'text/html; charset=utf-8','x-content-type-options':'nosniff','referrer-policy':'strict-origin-when-cross-origin','x-frame-options':'DENY','content-security-policy':\"default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'\"}});}catch(err){console.error('request_failed',String(err?.message||err));return json({error:'Something went wrong.'},500);}},
  async scheduled(event,env,ctx){ctx.waitUntil(runJobs(env,new Date(event.scheduledTime)));}
 };
