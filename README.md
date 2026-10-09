@@ -19,6 +19,10 @@ npx wrangler d1 migrations apply youth-calendar --local
 npm run dev
 ```
 
+## One-time browser bootstrap
+
+Before anyone can manage events, set a random Cloudflare Worker secret named `ADMIN_SETUP_KEY`. Open `/#setup` on the site and enter that one-time key, the initial administrator phone number, and a password of at least 12 characters. The route permits only the first administrator and closes automatically once one account exists. Keep the key private and remove the Worker secret after successful setup. Alternatively, use the trusted-machine CLI provisioning steps below.
+
 ## Production provisioning
 
 1. Confirm the remote database migration list before applying new migrations. The phone-role and delivery-tracking schema are included in `migrations/`.
