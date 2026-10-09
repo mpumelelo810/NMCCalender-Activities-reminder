@@ -3,7 +3,7 @@ import {deliver} from './notify.js';
 const now=()=>new Date().toISOString();
 const json=(data,status=200,headers={})=>new Response(JSON.stringify(data),{status,headers:{'content-type':'application/json; charset=utf-8','cache-control':'no-store',...headers}});
 const hex=async s=>[...new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(s)))].map(x=>x.toString(16).padStart(2,'0')).join('');
-const cookie=(req,name)=>{const v=(req.headers.get('cookie')||'').split(/;\\s*/).find(x=>x.startsWith(name+'='));return v?v.slice(name.length+1):null;};
+const cookie=(req,name)=>{const v=(req.headers.get('cookie')||'').split(/;\s*/).find(x=>x.startsWith(name+'='));return v?v.slice(name.length+1):null;};
 async function admin(req,env){const t=cookie(req,'sid');if(!t||!/^[a-f0-9]{64}$/.test(t))return null;return env.DB.prepare('SELECT admin_id FROM sessions WHERE token_hash=? AND expires_at>?').bind(await hex(t),now()).first();}
 async function audit(env,a,action,target){await env.DB.prepare('INSERT INTO audit(admin_id,action,target,at) VALUES(?,?,?,?)').bind(a,action,target,now()).run();}
 async function loginThrottle(req,env){const ip=req.headers.get('cf-connecting-ip')||'unknown',key=await hex(ip),time=Date.now(),row=await env.DB.prepare('SELECT attempts,window_started_at FROM login_attempts WHERE key=?').bind(key).first();if(!row)return {key,blocked:false};const start=Date.parse(row.window_started_at);if(!Number.isFinite(start)||time-start>=15*60*1000)return {key,blocked:false};return {key,blocked:row.attempts>=5};}
@@ -11,7 +11,7 @@ async function recordLoginFailure(env,key){const t=now(),row=await env.DB.prepar
 async function api(req,env,url){
  const p=url.pathname,m=req.method;
  if(p==='/api/events'&&m==='GET'){
-  const q=url.searchParams.get('from')||sastDate(new Date()),from=/^\\d{4}-\\d{2}-\\d{2}$/.test(q)?q:sastDate(new Date());
+  const q=url.searchParams.get('from')||sastDate(new Date()),from=/^\d{4}-\d{2}-\d{2}$/.test(q)?q:sastDate(new Date());
   const {results}=await env.DB.prepare('SELECT id,title,date,start_time,end_time,location,description,category FROM events WHERE published=1 AND cancelled=0 AND date>=? ORDER BY date,start_time LIMIT 200').bind(from).all();
   return json(results,200,{'cache-control':'public, max-age=60'});
  }
@@ -38,7 +38,7 @@ async function api(req,env,url){
   await env.DB.prepare('INSERT INTO events(id,title,date,start_time,end_time,location,description,category,published,cancelled,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)').bind(id,e.title,e.date,e.start_time,e.end_time,e.location,e.description,e.category,e.published,e.cancelled,t,t).run();
   await audit(env,who.admin_id,'create_event',id);return json({id},201);
  }
- const x=p.match(/^\\/api\\/admin\\/events\\/([0-9a-f-]{36})$/);
+ const x=p.match(/^\/api\/admin\/events\/([0-9a-f-]{36})$/);
  if(x&&m==='PUT'){
   const v=validateEvent(await req.json().catch(()=>({})));if(!v.ok)return json({errors:v.errors},400);const e=v.value;
   const r=await env.DB.prepare('UPDATE events SET title=?,date=?,start_time=?,end_time=?,location=?,description=?,category=?,published=?,cancelled=?,updated_at=? WHERE id=?').bind(e.title,e.date,e.start_time,e.end_time,e.location,e.description,e.category,e.published,e.cancelled,now(),x[1]).run();
