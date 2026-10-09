@@ -1,0 +1,21 @@
+name = "youth-calendar"
+main = "src/worker.js"
+compatibility_date = "2026-10-09"
+
+[assets]
+directory = "./public"
+binding = "ASSETS"
+run_worker_first = ["/api/*"]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "youth-calendar"
+database_id = "852cdbbe-24c1-4064-ac08-4efef4612c2b"
+migrations_dir = "migrations"
+
+[triggers]
+# 05:00 UTC = 07:00 SAST (Africa/Johannesburg, UTC+2). One trigger evaluates all jobs.
+crons = ["0 5 * * *"]
+
+[vars]
+NOTIFY_PROVIDER = "none"
