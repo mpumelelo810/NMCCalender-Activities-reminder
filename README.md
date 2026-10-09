@@ -27,7 +27,9 @@ npm run dev
    Administrator:
    ```sh
    read -rsp "Administrator password: " ADMIN_PASSWORD; echo
-   ADMIN_PASSWORD="$ADMIN_PASSWORD" node scripts/make-admin.mjs "+2687767261" "mpumelelo" administrator > /tmp/nmcc-admin.sql
+   read -rp "Administrator phone (+268 plus 8 digits): " ADMIN_PHONE
+read -rp "Administrator name: " ADMIN_NAME
+ADMIN_PASSWORD="$ADMIN_PASSWORD" node scripts/make-admin.mjs "$ADMIN_PHONE" "$ADMIN_NAME" administrator > /tmp/nmcc-admin.sql
    unset ADMIN_PASSWORD
    npx wrangler d1 execute youth-calendar --remote --command "$(cat /tmp/nmcc-admin.sql)"
    rm -f /tmp/nmcc-admin.sql
@@ -36,7 +38,9 @@ npm run dev
    Organiser:
    ```sh
    read -rsp "Organiser password: " ADMIN_PASSWORD; echo
-   ADMIN_PASSWORD="$ADMIN_PASSWORD" node scripts/make-admin.mjs "+26879429229" "mancoba" organiser > /tmp/nmcc-organiser.sql
+   read -rp "Organiser phone (+268 plus 8 digits): " ORGANISER_PHONE
+read -rp "Organiser name: " ORGANISER_NAME
+ADMIN_PASSWORD="$ADMIN_PASSWORD" node scripts/make-admin.mjs "$ORGANISER_PHONE" "$ORGANISER_NAME" organiser > /tmp/nmcc-organiser.sql
    unset ADMIN_PASSWORD
    npx wrangler d1 execute youth-calendar --remote --command "$(cat /tmp/nmcc-organiser.sql)"
    rm -f /tmp/nmcc-organiser.sql
