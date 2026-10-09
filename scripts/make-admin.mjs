@@ -8,7 +8,7 @@ const name = String(nameArg || '').trim().slice(0, 80);
 const role = String(roleArg || 'administrator').trim().toLowerCase();
 const password = process.env.ADMIN_PASSWORD;
 
-if (!/^\\+268[0-9]{7,9}$/.test(phone) || !name || !['administrator', 'organiser'].includes(role) || !password || password.length < 12) {
+if (!/^\\+268[0-9]{8}$/.test(phone) || !name || !['administrator', 'organiser'].includes(role) || !password || password.length < 12) {
   console.error('Usage: ADMIN_PASSWORD=<12+ characters> node scripts/make-admin.mjs +268XXXXXXXX name [administrator|organiser]');
   process.exit(1);
 }
