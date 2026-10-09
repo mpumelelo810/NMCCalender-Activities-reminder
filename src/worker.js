@@ -71,8 +71,9 @@ async function api(req,env,url){
 export async function runJobs(env,when){
  const today=sastDate(when),{results}=await env.DB.prepare('SELECT * FROM events WHERE date IN (?,?,?)').bind(today,addDays(today,1),upcomingSaturday(today)).all();
  for(const msg of buildMessages(today,results)){
-  const ins=await env.DB.prepare("INSERT OR IGNORE INTO notification_runs(job,report_date,subject,body,status,created_at) VALUES(?,?,?,?,'generated',?)").bind(msg.job,msg.report_date,msg.subject,msg.body,now()).run();
-  if(!ins.meta.changes)continue;
+  await env.DB.prepare("INSERT OR IGNORE INTO notification_runs(job,report_date,subject,body,status,created_at) VALUES(?,?,?,?,'generated',?)").bind(msg.job,msg.report_date,msg.subject,msg.body,now()).run();
+  const prior=await env.DB.prepare('SELECT status FROM notification_runs WHERE job=? AND report_date=?').bind(msg.job,msg.report_date).first();
+  if(!prior||prior.status==='sent')continue;
   let result;try{result=await deliver(env,msg);}catch(err){result={status:'failed',detail:String(err?.message||err).slice(0,300)};}
   await env.DB.prepare('UPDATE notification_runs SET status=?,detail=? WHERE job=? AND report_date=?').bind(result.status,result.detail,msg.job,msg.report_date).run();
  }
