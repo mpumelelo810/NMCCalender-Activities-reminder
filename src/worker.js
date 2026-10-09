@@ -1,4 +1,4 @@
-import {validateEvent,sastDate,addDays,upcomingSaturday,buildMessages,verifyPassword} from './lib.js';
+import {validateEvent,sastDate,addDays,upcomingSaturday,buildMessages,hashPassword,verifyPassword} from './lib.js';
 import {deliver} from './notify.js';
 import {PAGE} from './page.js';
 const now=()=>new Date().toISOString();
@@ -11,6 +11,29 @@ async function loginThrottle(req,env){const ip=req.headers.get('cf-connecting-ip
 async function recordLoginFailure(env,key){const t=now(),row=await env.DB.prepare('SELECT attempts,window_started_at FROM login_attempts WHERE key=?').bind(key).first();if(!row){await env.DB.prepare('INSERT INTO login_attempts(key,attempts,window_started_at) VALUES(?,1,?)').bind(key,t).run();return;}if(Date.now()-Date.parse(row.window_started_at)>=15*60*1000){await env.DB.prepare('UPDATE login_attempts SET attempts=1,window_started_at=? WHERE key=?').bind(t,key).run();}else{await env.DB.prepare('UPDATE login_attempts SET attempts=attempts+1 WHERE key=?').bind(key).run();}}
 async function api(req,env,url){
  const p=url.pathname,m=req.method;
+ if(p==='/api/setup/status'&&m==='GET'){
+  const row=await env.DB.prepare('SELECT COUNT(*) AS n FROM admins').first();
+  return json({required:Number(row?.n||0)===0});
+ }
+ if(p==='/api/setup/admin'&&m==='POST'){
+  const count=await env.DB.prepare('SELECT COUNT(*) AS n FROM admins').first();
+  if(Number(count?.n||0)!==0)return json({error:'Initial administrator setup is already closed. Please sign in.'},409);
+  const throttle=await loginThrottle(req,env);
+  if(throttle.blocked)return json({error:'Too many setup attempts. Wait 15 minutes and try again.'},429,{'retry-after':'900'});
+  const b=await req.json().catch(()=>({}));
+  const key=String(b.setup_key||''),phone=String(b.phone||'').trim().replace(/[\s()-]/g,''),name=String(b.name||'').trim().slice(0,80);
+  const password=String(b.password||''),passwordConfirm=String(b.password_confirm||'');
+  if(!env.ADMIN_SETUP_KEY||key!==env.ADMIN_SETUP_KEY){await recordLoginFailure(env,throttle.key);return json({error:'Setup key is incorrect.'},403);}
+  if(!/^\+268[0-9]{8}$/.test(phone)||!name)return json({error:'Enter a name and a valid Eswatini number (+268 followed by 8 digits).'},400);
+  if(password.length<12||password.length>256)return json({error:'Choose a password between 12 and 256 characters.'},400);
+  if(password!==passwordConfirm)return json({error:'The passwords do not match.'},400);
+  const hash=await hashPassword(password),t=now(),email=phone.replace(/[^0-9]/g,'')+'@nmcc.local';
+  const created=await env.DB.prepare("INSERT INTO admins(id,email,phone,name,role,active,password_hash,created_at) SELECT ?,?,?,?,'administrator',1,?,? WHERE NOT EXISTS (SELECT 1 FROM admins)").bind(phone,email,phone,name,hash,t).run();
+  if(!created.meta.changes)return json({error:'Initial setup was completed by another request. Please sign in.'},409);
+  await env.DB.prepare('DELETE FROM login_attempts WHERE key=?').bind(throttle.key).run();
+  await audit(env,phone,'bootstrap_administrator',phone);
+  return json({ok:true,message:'Administrator account created. You can now sign in.'},201);
+ }
  if(p==='/api/events'&&m==='GET'){
   const q=url.searchParams.get('from')||sastDate(new Date()),from=/^\d{4}-\d{2}-\d{2}$/.test(q)?q:sastDate(new Date());
   const {results}=await env.DB.prepare('SELECT id,title,date,start_time,end_time,location,description,category,all_day FROM events WHERE published=1 AND cancelled=0 AND date>=? ORDER BY date,start_time LIMIT 200').bind(from).all();
