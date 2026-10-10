@@ -27,17 +27,17 @@ const NON_BIRTHDAY_TITLES = new Set([
 ]);
 const normalTitle=s=>String(s||'').trim().toLocaleLowerCase().replace(/\s+/g,' ');
 export const isBirthdayEvent=e=>e?.category!=='meeting' && !!String(e?.title||'').trim() && !NON_BIRTHDAY_TITLES.has(normalTitle(e.title));
-export const birthdayMessage=name=>\`🎉 Happy Birthday, \${name}! May God bless you with a beautiful year filled with love, joy, good health, and His grace. May He guide your steps, strengthen your faith, open wonderful doors for you, and remind you every day how deeply you are loved and valued by your NMC Youth family. Enjoy your special day! 💚🎂\`;
+export const birthdayMessage=name=>`🎉 Happy Birthday, ${name}! May God bless you with a beautiful year filled with love, joy, good health, and His grace. May He guide your steps, strengthen your faith, open wonderful doors for you, and remind you every day how deeply you are loved and valued by your NMC Youth family. Enjoy your special day! 💚🎂`;
 const birthdayName=e=>String(e.title||'').trim().replace(/^happy birthday[:, -]*/i,'').replace(/['’]s birthday$/i,'').trim();
-const line=e=>\`\${(e.all_day===1||e.all_day===true)?'':\`\${e.start_time}\${e.end_time?'-'+e.end_time:''} \`}\${isBirthdayEvent(e)?'🎂 '+birthdayName(e)+"'s birthday":e.title}\${e.location?' at '+e.location:''}\${e.description?'\n  '+e.description:''}\`;
+const line=e=>`${(e.all_day===1||e.all_day===true)?'':`${e.start_time}${e.end_time?'-'+e.end_time:''} `}${isBirthdayEvent(e)?'🎂 '+birthdayName(e)+"'s birthday":e.title}${e.location?' at '+e.location:''}${e.description?'\n  '+e.description:''}`;
 const eligible=e=>e.published===1||e.published===true ? !(e.cancelled===1||e.cancelled===true) : false;
 export function buildMessages(today,events) {
  const on=d=>events.filter(e=>eligible(e)&&e.date===d).sort((a,b)=>a.start_time.localeCompare(b.start_time));
- const dailyLine=(e,when)=>isBirthdayEvent(e)&&when==='Today'?birthdayMessage(birthdayName(e)):\`\${when} \${line(e)}\`;
+ const dailyLine=(e,when)=>isBirthdayEvent(e)&&when==='Today'?birthdayMessage(birthdayName(e)):`${when} ${line(e)}`;
  const out=[],tomorrow=addDays(today,1),daily=[...on(today).map(e=>dailyLine(e,'Today')),...on(tomorrow).map(e=>dailyLine(e,'Tomorrow'))];
- if(daily.length)out.push({job:'daily',report_date:today,subject:\`Youth activities: \${today}\`,body:daily.join('\n\n')});
- if(weekday(today)===1){const sat=upcomingSaturday(today),list=on(sat);out.push({job:'monday_preview',report_date:today,subject:\`This Saturday (\${sat})\`,body:list.length?list.map(line).join('\n'):\`No activities are published for Saturday \${sat}.\`});}
- const meetings=on(today).filter(e=>e.category==='meeting'); if(meetings.length)out.push({job:'meeting_agenda',report_date:today,subject:\`Meeting today (\${today})\`,body:meetings.map(line).join('\n')});
+ if(daily.length)out.push({job:'daily',report_date:today,subject:`Youth activities: ${today}`,body:daily.join('\n\n')});
+ if(weekday(today)===1){const sat=upcomingSaturday(today),list=on(sat);out.push({job:'monday_preview',report_date:today,subject:`This Saturday (${sat})`,body:list.length?list.map(line).join('\n'):`No activities are published for Saturday ${sat}.`});}
+ const meetings=on(today).filter(e=>e.category==='meeting'); if(meetings.length)out.push({job:'meeting_agenda',report_date:today,subject:`Meeting today (${today})`,body:meetings.map(line).join('\n')});
  return out;
 }
 const b64=u=>btoa(String.fromCharCode(...u)),unb64=s=>Uint8Array.from(atob(s),c=>c.charCodeAt(0));
