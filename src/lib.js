@@ -25,7 +25,7 @@ const NON_BIRTHDAY_TITLES = new Set([
  'survival skills','talent&art sessions','team building','worship & word evening','youth day',
  'youth prayers','youth service','youth services','youth sunday'
 ]);
-const normalTitle=s=>String(s||'').trim().toLocaleLowerCase().replace(/\s+/g,' ');
+const normalTitle=s=>String(s||'').trim().toLocaleLowerCase().replace(/\s*\/\s*/g,'/').replace(/\s+/g,' ');
 export const isBirthdayEvent=e=>e?.category!=='meeting' && !!String(e?.title||'').trim() && !NON_BIRTHDAY_TITLES.has(normalTitle(e.title));
 export const birthdayMessage=name=>`🎉 Happy Birthday, ${name}! May God bless you with a beautiful year filled with love, joy, good health, and His grace. May He guide your steps, strengthen your faith, open wonderful doors for you, and remind you every day how deeply you are loved and valued by your NMC Youth family. Enjoy your special day! 💚🎂`;
 const birthdayName=e=>String(e.title||'').trim().replace(/^happy birthday[:, -]*/i,'').replace(/['’]s birthday$/i,'').trim();
