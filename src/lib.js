@@ -34,7 +34,7 @@ const eligible=e=>e.published===1||e.published===true ? !(e.cancelled===1||e.can
 export function buildMessages(today,events) {
  const on=d=>events.filter(e=>eligible(e)&&e.date===d).sort((a,b)=>a.start_time.localeCompare(b.start_time));
  const dailyLine=(e,when)=>isBirthdayEvent(e)&&when==='Today'?birthdayMessage(birthdayName(e)):`${when} ${line(e)}`;
- const out=[],tomorrow=addDays(today,1),daily=[...on(today).map(e=>dailyLine(e,'Today')),...on(tomorrow).map(e=>dailyLine(e,'Tomorrow'))];
+ const out=[],tomorrow=addDays(today,1),todayActivities=on(today).filter(e=>e.category!=='meeting'),daily=[...todayActivities.map(e=>dailyLine(e,'Today')),...on(tomorrow).map(e=>dailyLine(e,'Tomorrow'))];
  if(daily.length)out.push({job:'daily',report_date:today,subject:`Youth activities: ${today}`,body:daily.join('\n\n')});
  if(weekday(today)===1){const sat=upcomingSaturday(today),list=on(sat);out.push({job:'monday_preview',report_date:today,subject:`This Saturday (${sat})`,body:list.length?list.map(line).join('\n'):`No activities are published for Saturday ${sat}.`});}
  const meetings=on(today).filter(e=>e.category==='meeting'); if(meetings.length)out.push({job:'meeting_agenda',report_date:today,subject:`Meeting today (${today})`,body:meetings.map(line).join('\n')});
