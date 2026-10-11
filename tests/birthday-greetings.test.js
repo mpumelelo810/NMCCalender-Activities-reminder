@@ -24,3 +24,18 @@ test('daily reminders include the personalised birthday greeting on the birthday
   assert.match(messages[0].body, /Happy Birthday, Ayabonga/);
   assert.match(messages[0].body, /NMC Youth family/);
 });
+
+
+test('same-day meetings appear in the meeting agenda, not twice in the daily digest', () => {
+  const messages = buildMessages('2026-10-14', [
+    { title: 'Committee Meeting', date: '2026-10-14', start_time: '00:00', category: 'meeting', published: 1, cancelled: 0, all_day: 1 },
+    { title: 'Youth Prayers', date: '2026-10-14', start_time: '00:00', category: 'activity', published: 1, cancelled: 0, all_day: 1 }
+  ]);
+  const daily = messages.find(message => message.job === 'daily');
+  const agenda = messages.find(message => message.job === 'meeting_agenda');
+  assert.ok(daily);
+  assert.ok(agenda);
+  assert.match(daily.body, /Youth Prayers/);
+  assert.doesNotMatch(daily.body, /Committee Meeting/);
+  assert.match(agenda.body, /Committee Meeting/);
+});
