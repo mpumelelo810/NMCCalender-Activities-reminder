@@ -5,6 +5,7 @@
   "scripts": {
     "test": "node --test",
     "dev": "npx --yes wrangler@4 dev",
+    "postinstall": "node scripts/apply-cloudflare-migrations.mjs",
     "build": "npx --yes wrangler@4 deploy --dry-run",
     "db:migrations:list": "npx --yes wrangler@4 d1 migrations list DB --remote",
     "db:migrations:apply": "npx --yes wrangler@4 d1 migrations apply DB --remote",
