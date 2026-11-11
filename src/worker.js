@@ -72,11 +72,11 @@ async function api(req,env,url){
  if(p==='/api/admin/users'&&who.role!=='administrator')return json({error:'Administrator permission required.'},403);
  if(p==='/api/admin/users'&&m==='GET')return json((await env.DB.prepare('SELECT phone,name,role,active,created_at FROM admins ORDER BY role, name').all()).results);
  if(p==='/api/admin/users'&&m==='POST'){
-  const b=await req.json().catch(()=>({})),phone=String(b.phone||'').trim().replace(/[\\s()-]/g,''),name=String(b.name||'').trim().slice(0,80);
-  if(!/^\\+268[0-9]{8}$/.test(phone)||!name)return json({error:'Enter a valid Eswatini phone number and name.'},400);
+  const b=await req.json().catch(()=>({})),phone=String(b.phone||'').trim().replace(/[\s()-]/g,''),name=String(b.name||'').trim().slice(0,80);
+  if(!/^\+268[0-9]{8}$/.test(phone)||!name)return json({error:'Enter a valid Eswatini phone number and name.'},400);
   const exists=await env.DB.prepare('SELECT id FROM admins WHERE phone=?').bind(phone).first();if(exists)return json({error:'That phone number already has an account.'},409);
   const initialPassword=generateTemporaryPassword(),t=now();
-  await env.DB.prepare('INSERT INTO admins(id,email,phone,name,role,active,password_hash,created_at) VALUES(?,?,?,?,\\'organiser\\',1,?,?)').bind(phone,phone.replace(/[^0-9]/g,'')+'@nmcc.local',phone,name,await hashPassword(initialPassword),t).run();
+  await env.DB.prepare("INSERT INTO admins(id,email,phone,name,role,active,password_hash,created_at) VALUES(?,?,?,?, 'organiser',1,?,?)").bind(phone,phone.replace(/[^0-9]/g,'')+'@nmcc.local',phone,name,await hashPassword(initialPassword),t).run();
   await audit(env,who.admin_id,'create_organiser',phone);
   return json({ok:true,phone,name,role:'organiser',temporaryPassword:initialPassword},201);
  }
