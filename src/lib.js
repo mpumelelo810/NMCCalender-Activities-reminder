@@ -42,5 +42,6 @@ export function buildMessages(today,events) {
 }
 const b64=u=>btoa(String.fromCharCode(...u)),unb64=s=>Uint8Array.from(atob(s),c=>c.charCodeAt(0));
 const pbkdf2=async(pw,salt)=>new Uint8Array(await crypto.subtle.deriveBits({name:'PBKDF2',hash:'SHA-256',salt,iterations:100000},await crypto.subtle.importKey('raw',new TextEncoder().encode(pw),'PBKDF2',false,['deriveBits']),256));
+export function generateTemporaryPassword(){return [...crypto.getRandomValues(new Uint8Array(24))].map(x=>x.toString(16).padStart(2,'0')).join('');}
 export async function hashPassword(pw){const salt=crypto.getRandomValues(new Uint8Array(16));return `${b64(salt)}:${b64(await pbkdf2(pw,salt))}`;}
 export async function verifyPassword(pw,stored){try{const [s,h]=String(stored).split(':');if(!s||!h)return false;const a=await pbkdf2(pw,unb64(s)),b=unb64(h);let d=a.length^b.length;for(let i=0;i<a.length;i++)d|=a[i]^(b[i]||0);return d===0;}catch{return false;}}
