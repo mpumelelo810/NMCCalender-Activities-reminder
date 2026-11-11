@@ -1,5 +1,5 @@
 import {test} from 'node:test';import assert from 'node:assert/strict';
-import {sastDate,upcomingSaturday,buildMessages,validateEvent,hashPassword,verifyPassword} from '../src/lib.js';
+import {sastDate,upcomingSaturday,buildMessages,validateEvent,hashPassword,verifyPassword,generateTemporaryPassword} from '../src/lib.js';
 const ev=o=>({title:'T',start_time:'10:00',end_time:null,location:'Hall',description:'',category:'activity',published:1,cancelled:0,...o});
 test('05:00 UTC is 07:00 SAST and rolls date correctly',()=>{assert.equal(sastDate(new Date('2026-10-04T22:30:00Z')),'2026-10-05');assert.equal(sastDate(new Date('2026-10-05T05:00:00Z')),'2026-10-05');});
 test('upcoming Saturday handles month and year boundaries',()=>{assert.equal(upcomingSaturday('2026-10-05'),'2026-10-10');assert.equal(upcomingSaturday('2026-03-30'),'2026-04-04');assert.equal(upcomingSaturday('2026-12-28'),'2027-01-02');});
@@ -23,4 +23,10 @@ test('birthday and committee meeting reminders use explicit event types',()=>{
  assert.match(messages.find(x=>x.job==='daily').body,/Happy Birthday, Mpumelelo/);
  assert.match(messages.find(x=>x.job==='meeting_agenda').body,/Planning/);
  assert.doesNotMatch(messages.find(x=>x.job==='meeting_agenda').body,/Bible study/);
+});
+
+test('temporary organiser passwords are strong and unique',()=>{
+ const first=generateTemporaryPassword(),second=generateTemporaryPassword();
+ assert.match(first,/^[a-f0-9]{48}$/);
+ assert.notEqual(first,second);
 });
