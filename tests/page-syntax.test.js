@@ -25,3 +25,11 @@ test('the monthly calendar is displayed before the upcoming events list', () => 
   assert.ok(upcoming > calendar, 'Expected upcoming events underneath the month calendar');
   assert.doesNotMatch(PAGE, /calendar-panel\\{order:-1\\}/);
 });
+
+test('the static homepage stays in sync with the Worker calendar page', async () => {
+  const { readFile } = await import('node:fs/promises');
+  const { fileURLToPath } = await import('node:url');
+  const assetPath = fileURLToPath(new URL('../public/index.html', import.meta.url));
+  const asset = await readFile(assetPath, 'utf8');
+  assert.equal(asset, PAGE, 'public/index.html must match the Worker PAGE source');
+});
