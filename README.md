@@ -4,7 +4,7 @@ Mobile-friendly public calendar and single-administrator event manager using Clo
 
 ## Status
 - Source implementation: Worker API, public read-only calendar, admin sign-in, event CRUD/publishing, D1 migration, UTC cron, generated-notification log, and unit tests.
-- Authentication: PBKDF2-SHA256 with per-password random salt; random session cookie is HttpOnly, Secure and SameSite=Strict; only its SHA-256 hash is stored. No public administrator registration. Organiser accounts receive a random initial password, and every signed-in user can change their password; changing a password closes other active sessions.
+- Authentication: PBKDF2-SHA256 with per-password random salt; random session cookie is HttpOnly, Secure and SameSite=Strict; only its SHA-256 hash is stored. No public administrator registration.
 - Reminders: Cron `0 5 * * *` UTC = 07:00 in `Africa/Johannesburg` (SAST). Daily reminder (today/tomorrow, omitted when empty), Monday preview of all published events on the current week's Saturday (empty Saturday gets an explicit preview), and agenda for published, non-cancelled meetings today. `UNIQUE(job, report_date)` makes execution idempotent.
 - Delivery: an optional WhatsApp Cloud API adapter supports approved template messages to each configured recipient. It remains disabled until Meta credentials/template approval and an explicit Worker config switch are provided. Per-recipient delivery status and retry support are included.
 - Recovery: export via Wrangler to a private location; rehearse import/restore on a separate D1 database before production. Restoration is account-owner CLI only at this stage, not a public API feature.
@@ -26,7 +26,7 @@ Before anyone can manage events, set a random Cloudflare Worker secret named `AD
 ## Production provisioning
 
 1. Confirm the remote database migration list before applying new migrations. The phone-role and delivery-tracking schema are included in `migrations/`.
-2. Install dependencies and provision the initial phone-based administrator and organiser accounts from a trusted machine. For accounts created in the web interface, the application generates a cryptographically random initial password and shows it once to the signed-in Administrator. Share it privately with the organiser. Each user can change their password from the **Change your password** form after signing in. Never reuse a phone number or name as a password.
+2. Install dependencies and provision the two initial phone-based accounts from a trusted machine. The password is entered hidden in the terminal; the script prints SQL containing only a PBKDF2 hash, not the password. For the requested phone-plus-name format, enter each person's password as their phone number without the leading `+`, followed by `@`, followed by their name without spaces.
    
    Administrator:
    ```sh

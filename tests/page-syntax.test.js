@@ -17,3 +17,11 @@ test('the calendar page inline JavaScript parses successfully', () => {
     }
   }
 });
+
+test('the monthly calendar is displayed before the upcoming events list', () => {
+  const calendar = PAGE.indexOf('app.innerHTML=renderMonth(monthEvents)');
+  const upcoming = PAGE.indexOf('Next 6 upcoming events', calendar);
+  assert.ok(calendar >= 0, 'Expected the month calendar to render first');
+  assert.ok(upcoming > calendar, 'Expected upcoming events underneath the month calendar');
+  assert.doesNotMatch(PAGE, /calendar-panel\\{order:-1\\}/);
+});

@@ -39,3 +39,9 @@ test('same-day meetings appear in the meeting agenda, not twice in the daily dig
   assert.doesNotMatch(daily.body, /Committee Meeting/);
   assert.match(agenda.body, /Committee Meeting/);
 });
+
+test('admin-selected sessions and meetings are never inferred to be birthdays from their titles', () => {
+  assert.equal(isBirthdayEvent({title:'Community Skills Workshop',category:'activity',event_type:'activity'}), false);
+  assert.equal(isBirthdayEvent({title:'Minenhle',category:'activity',event_type:'birthday'}), true);
+  assert.equal(isBirthdayEvent({title:'Committee Planning',category:'meeting',event_type:'meeting'}), false);
+});
