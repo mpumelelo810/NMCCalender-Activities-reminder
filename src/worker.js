@@ -1,4 +1,4 @@
-import {validateEvent,sastDate,addDays,upcomingSaturday,buildMessages,hashPassword,verifyPassword} from './lib.js';
+import {validateEvent,sastDate,addDays,upcomingSaturday,buildMessages,hashPassword,verifyPassword,generateTemporaryPassword} from './lib.js';
 import {deliver} from './notify.js';
 import {PAGE} from './page.js';
 const now=()=>new Date().toISOString();
@@ -54,18 +54,31 @@ async function api(req,env,url){
   return json({ok:true},200,{'set-cookie':`sid=${t}; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=43200`});
  }
  const who=await admin(req,env);if(!who)return json({error:'Sign in required.'},401);
+ if(p==='/api/account/password'&&m==='POST'){
+  const b=await req.json().catch(()=>({})),current=String(b.current_password||''),next=String(b.new_password||''),confirm=String(b.confirm_password||'');
+  if(next.length<12||next.length>256)return json({error:'Choose a new password between 12 and 256 characters.'},400);
+  if(next!==confirm)return json({error:'The new passwords do not match.'},400);
+  const account=await env.DB.prepare('SELECT password_hash FROM admins WHERE id=? AND active=1').bind(who.admin_id).first();
+  if(!account||!(await verifyPassword(current,account.password_hash)))return json({error:'Your current password is incorrect.'},401);
+  const token=cookie(req,'sid');
+  await env.DB.prepare('UPDATE admins SET password_hash=? WHERE id=?').bind(await hashPassword(next),who.admin_id).run();
+  if(token)await env.DB.prepare('DELETE FROM sessions WHERE admin_id=? AND token_hash<>?').bind(who.admin_id,await hex(token)).run();
+  await audit(env,who.admin_id,'change_password',who.admin_id);
+  return json({ok:true,message:'Password updated. Other signed-in sessions have been closed.'});
+ }
  if(p==='/api/logout'&&m==='POST'){const t=cookie(req,'sid');if(t)await env.DB.prepare('DELETE FROM sessions WHERE token_hash=?').bind(await hex(t)).run();return json({ok:true},200,{'set-cookie':'sid=; Max-Age=0; Path=/; HttpOnly; Secure; SameSite=Strict'});}
  if(p==='/api/admin/events'&&m==='GET')return json((await env.DB.prepare('SELECT * FROM events ORDER BY date DESC,start_time LIMIT 500').all()).results);
  if(p==='/api/me'&&m==='GET')return json({phone:who.phone,name:who.name,role:who.role});
  if(p==='/api/admin/users'&&who.role!=='administrator')return json({error:'Administrator permission required.'},403);
  if(p==='/api/admin/users'&&m==='GET')return json((await env.DB.prepare('SELECT phone,name,role,active,created_at FROM admins ORDER BY role, name').all()).results);
  if(p==='/api/admin/users'&&m==='POST'){
-  const b=await req.json().catch(()=>({})),phone=String(b.phone||'').trim().replace(/[\s()-]/g,''),name=String(b.name||'').trim().slice(0,80);
-  if(!/^\+268[0-9]{8}$/.test(phone)||!name)return json({error:'Enter a valid Eswatini phone number and name.'},400);
-  const {hashPassword}=await import('./lib.js'),password=phone.replace(/^\+/,'')+'@'+name.toLowerCase().replace(/\s+/g,'');
+  const b=await req.json().catch(()=>({})),phone=String(b.phone||'').trim().replace(/[\\s()-]/g,''),name=String(b.name||'').trim().slice(0,80);
+  if(!/^\\+268[0-9]{8}$/.test(phone)||!name)return json({error:'Enter a valid Eswatini phone number and name.'},400);
   const exists=await env.DB.prepare('SELECT id FROM admins WHERE phone=?').bind(phone).first();if(exists)return json({error:'That phone number already has an account.'},409);
-  const t=now();await env.DB.prepare('INSERT INTO admins(id,email,phone,name,role,active,password_hash,created_at) VALUES(?,?,?,?,\'organiser\',1,?,?)').bind(phone,phone.replace(/[^0-9]/g,'')+'@nmcc.local',phone,name,await hashPassword(password),t).run();
-  await audit(env,who.admin_id,'create_organiser',phone);return json({ok:true,phone,name,role:'organiser',passwordFormat:'phone number without +, followed by @ and the name without spaces'} ,201);
+  const initialPassword=generateTemporaryPassword(),t=now();
+  await env.DB.prepare('INSERT INTO admins(id,email,phone,name,role,active,password_hash,created_at) VALUES(?,?,?,?,\\'organiser\\',1,?,?)').bind(phone,phone.replace(/[^0-9]/g,'')+'@nmcc.local',phone,name,await hashPassword(initialPassword),t).run();
+  await audit(env,who.admin_id,'create_organiser',phone);
+  return json({ok:true,phone,name,role:'organiser',temporaryPassword:initialPassword},201);
  }
  const userPath=p.match(/^\/api\/admin\/users\/(.+)$/);
  if(userPath&&m==='PATCH'){
