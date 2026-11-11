@@ -1,4 +1,4 @@
-import {validateEvent,sastDate,addDays,upcomingSaturday,buildMessages,hashPassword,verifyPassword} from './lib.js';
+import {validateEvent,validDate,sastDate,addDays,upcomingSaturday,buildMessages,hashPassword,verifyPassword} from './lib.js';
 import {deliver} from './notify.js';
 import {PAGE} from './page.js';
 const now=()=>new Date().toISOString();
@@ -35,8 +35,12 @@ async function api(req,env,url){
   return json({ok:true,message:'Administrator account created. You can now sign in.'},201);
  }
  if(p==='/api/events'&&m==='GET'){
-  const q=url.searchParams.get('from')||sastDate(new Date()),from=/^\d{4}-\d{2}-\d{2}$/.test(q)?q:sastDate(new Date());
-  const {results}=await env.DB.prepare('SELECT id,title,date,start_time,end_time,location,description,category,event_type,all_day FROM events WHERE published=1 AND cancelled=0 AND date>=? ORDER BY date,start_time LIMIT 200').bind(from).all();
+  const today=sastDate(new Date()),requestedFrom=url.searchParams.get('from')||today;
+  const from=validDate(requestedFrom)?requestedFrom:today,requestedTo=url.searchParams.get('to');
+  const to=validDate(requestedTo)&&requestedTo>=from?requestedTo:null;
+  const sql='SELECT id,title,date,start_time,end_time,location,description,category,event_type,all_day FROM events WHERE published=1 AND cancelled=0 AND date>=?'+(to?' AND date<=?':'')+' ORDER BY date,start_time LIMIT 500';
+  const query=env.DB.prepare(sql).bind(...(to?[from,to]:[from]));
+  const {results}=await query.all();
   return json(results,200,{'cache-control':'public, max-age=60'});
  }
  if(m!=='GET'){
