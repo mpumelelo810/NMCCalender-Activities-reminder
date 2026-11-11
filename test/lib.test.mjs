@@ -16,6 +16,12 @@ test('event type validation supports birthdays, sessions and committee meetings'
   assert.equal(result.value.event_type,type);
  }
  assert.equal(validateEvent({title:'Test',date:'2026-02-20',start_time:'10:00',event_type:'unknown'}).value.event_type,'activity');
+ const explicitActivity=validateEvent({title:'Workshop',date:'2026-02-20',start_time:'10:00',event_type:'activity',category:'meeting',published:'false',cancelled:'false'});
+ assert.equal(explicitActivity.value.category,'activity');
+ assert.equal(explicitActivity.value.published,0);
+ assert.equal(explicitActivity.value.cancelled,0);
+ const committee=validateEvent({title:'Planning',date:'2026-02-20',start_time:'10:00',event_type:'meeting'});
+ assert.equal(committee.value.category,'meeting');
 });
 test('birthday and committee meeting reminders use explicit event types',()=>{
  const events=[ev({date:'2026-10-05',title:'Mpumelelo',event_type:'birthday'}),ev({date:'2026-10-05',title:'Planning',event_type:'meeting',category:'meeting'}),ev({date:'2026-10-05',title:'Bible study',event_type:'activity'})];
