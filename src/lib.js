@@ -10,7 +10,7 @@ export const validTime = s => /^([01]\d|2[0-3]):[0-5]\d$/.test(s||'');
 export function validateEvent(b={}) {
  const errors=[], str=(v,n)=>String(v??'').trim().slice(0,n);
  const allDay=b.all_day===true||b.all_day===1||b.all_day==='1'||b.all_day==='true'||b.all_day==='on';
- const value={title:str(b.title,120),date:str(b.date,10),start_time:allDay?'00:00':str(b.start_time,5),end_time:allDay?null:(str(b.end_time,5)||null),location:str(b.location,200),description:str(b.description,2000),category:b.category==='meeting'?'meeting':'activity',all_day:allDay?1:0,published:b.published?1:0,cancelled:b.cancelled?1:0};
+ const value={title:str(b.title,120),date:str(b.date,10),start_time:allDay?'00:00':str(b.start_time,5),end_time:allDay?null:(str(b.end_time,5)||null),location:str(b.location,200),description:str(b.description,2000),category:b.event_type==='meeting'||b.category==='meeting'?'meeting':'activity',event_type:['birthday','activity','meeting'].includes(b.event_type)?b.event_type:(b.category==='meeting'?'meeting':'activity'),all_day:allDay?1:0,published:b.published?1:0,cancelled:b.cancelled?1:0};
  if(!value.title)errors.push('Enter a title.'); if(!validDate(value.date))errors.push('Enter a real date (YYYY-MM-DD).');
  if(!allDay&&!validTime(value.start_time))errors.push('Enter a start time like 14:30.'); if(!allDay&&value.end_time&&!validTime(value.end_time))errors.push('Enter an end time like 16:00, or leave it empty.');
  if(!allDay&&value.end_time&&validTime(value.start_time)&&value.end_time<=value.start_time)errors.push('End time must be after the start time.');
@@ -26,7 +26,7 @@ const NON_BIRTHDAY_TITLES = new Set([
  'youth prayers','youth service','youth services','youth sunday'
 ]);
 const normalTitle=s=>String(s||'').trim().toLocaleLowerCase().replace(/\s*\/\s*/g,'/').replace(/\s+/g,' ');
-export const isBirthdayEvent=e=>e?.category!=='meeting' && !!String(e?.title||'').trim() && !NON_BIRTHDAY_TITLES.has(normalTitle(e.title));
+export const isBirthdayEvent=e=>(e?.event_type||e?.category)==='birthday';
 export const birthdayMessage=name=>`🎉 Happy Birthday, ${name}! May God bless you with a beautiful year filled with love, joy, good health, and His grace. May He guide your steps, strengthen your faith, open wonderful doors for you, and remind you every day how deeply you are loved and valued by your NMC Youth family. Enjoy your special day! 💚🎂`;
 const birthdayName=e=>String(e.title||'').trim().replace(/^happy birthday[:, -]*/i,'').replace(/['’]s birthday$/i,'').trim();
 const line=e=>`${(e.all_day===1||e.all_day===true)?'':`${e.start_time}${e.end_time?'-'+e.end_time:''} `}${isBirthdayEvent(e)?'🎂 '+birthdayName(e)+"'s birthday":e.title}${e.location?' at '+e.location:''}${e.description?'\n  '+e.description:''}`;
@@ -34,10 +34,10 @@ const eligible=e=>e.published===1||e.published===true ? !(e.cancelled===1||e.can
 export function buildMessages(today,events) {
  const on=d=>events.filter(e=>eligible(e)&&e.date===d).sort((a,b)=>a.start_time.localeCompare(b.start_time));
  const dailyLine=(e,when)=>isBirthdayEvent(e)&&when==='Today'?birthdayMessage(birthdayName(e)):`${when} ${line(e)}`;
- const out=[],tomorrow=addDays(today,1),todayActivities=on(today).filter(e=>e.category!=='meeting'),daily=[...todayActivities.map(e=>dailyLine(e,'Today')),...on(tomorrow).map(e=>dailyLine(e,'Tomorrow'))];
+ const out=[],tomorrow=addDays(today,1),todayActivities=on(today).filter(e=>(e.event_type||e.category)!=='meeting'),daily=[...todayActivities.map(e=>dailyLine(e,'Today')),...on(tomorrow).map(e=>dailyLine(e,'Tomorrow'))];
  if(daily.length)out.push({job:'daily',report_date:today,subject:`Youth activities: ${today}`,body:daily.join('\n\n')});
  if(weekday(today)===1){const sat=upcomingSaturday(today),list=on(sat);out.push({job:'monday_preview',report_date:today,subject:`This Saturday (${sat})`,body:list.length?list.map(line).join('\n'):`No activities are published for Saturday ${sat}.`});}
- const meetings=on(today).filter(e=>e.category==='meeting'); if(meetings.length)out.push({job:'meeting_agenda',report_date:today,subject:`Meeting today (${today})`,body:meetings.map(line).join('\n')});
+ const meetings=on(today).filter(e=>(e.event_type||e.category)==='meeting'); if(meetings.length)out.push({job:'meeting_agenda',report_date:today,subject:`Meeting today (${today})`,body:meetings.map(line).join('\n')});
  return out;
 }
 const b64=u=>btoa(String.fromCharCode(...u)),unb64=s=>Uint8Array.from(atob(s),c=>c.charCodeAt(0));

@@ -8,3 +8,19 @@ test('empty Saturday still previews; empty daily is skipped',()=>{assert.match(b
 test('meeting agenda overlaps safely with Monday and daily jobs',()=>{const m=buildMessages('2026-10-05',[ev({date:'2026-10-05',category:'meeting',title:'Committee'}),ev({date:'2026-10-05',category:'meeting',title:'Draft',published:0}),ev({date:'2026-10-05',category:'meeting',title:'Gone',cancelled:1}),ev({date:'2026-10-05',title:'Practice'})]);assert.deepEqual(m.map(x=>x.job).sort(),['daily','meeting_agenda','monday_preview']);assert.match(m.find(x=>x.job==='meeting_agenda').body,/Committee/);});
 test('event validation rejects malformed values',()=>{assert.equal(validateEvent({title:'x',date:'2026-02-30',start_time:'10:00'}).ok,false);assert.equal(validateEvent({title:'',date:'2026-02-20',start_time:'10:00'}).ok,false);assert.equal(validateEvent({title:'x',date:'2026-02-20',start_time:'25:00'}).ok,false);assert.equal(validateEvent({title:'x',date:'2026-02-20',start_time:'10:00',end_time:'09:00'}).ok,false);assert.equal(validateEvent({title:'x',date:'2026-02-20',start_time:'10:00'}).ok,true);});
 test('password hashing verifies only the right password',async()=>{const h=await hashPassword('correct horse battery');assert.equal(await verifyPassword('correct horse battery',h),true);assert.equal(await verifyPassword('wrong',h),false);});
+
+test('event type validation supports birthdays, sessions and committee meetings',()=>{
+ for(const type of ['birthday','activity','meeting']){
+  const result=validateEvent({title:'Test event',date:'2026-02-20',start_time:'10:00',event_type:type});
+  assert.equal(result.ok,true);
+  assert.equal(result.value.event_type,type);
+ }
+ assert.equal(validateEvent({title:'Test',date:'2026-02-20',start_time:'10:00',event_type:'unknown'}).value.event_type,'activity');
+});
+test('birthday and committee meeting reminders use explicit event types',()=>{
+ const events=[ev({date:'2026-10-05',title:'Mpumelelo',event_type:'birthday'}),ev({date:'2026-10-05',title:'Planning',event_type:'meeting',category:'meeting'}),ev({date:'2026-10-05',title:'Bible study',event_type:'activity'})];
+ const messages=buildMessages('2026-10-05',events);
+ assert.match(messages.find(x=>x.job==='daily').body,/Happy Birthday, Mpumelelo/);
+ assert.match(messages.find(x=>x.job==='meeting_agenda').body,/Planning/);
+ assert.doesNotMatch(messages.find(x=>x.job==='meeting_agenda').body,/Bible study/);
+});
