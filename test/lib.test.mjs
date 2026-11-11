@@ -20,7 +20,7 @@ test('event type validation supports birthdays, sessions and committee meetings'
 test('birthday and committee meeting reminders use explicit event types',()=>{
  const events=[ev({date:'2026-10-05',title:'Mpumelelo',event_type:'birthday'}),ev({date:'2026-10-05',title:'Planning',event_type:'meeting',category:'meeting'}),ev({date:'2026-10-05',title:'Bible study',event_type:'activity'})];
  const messages=buildMessages('2026-10-05',events);
- assert.match(messages.find(x=>x.job==='daily').body,/Mpumelelo's birthday/);
+ assert.match(messages.find(x=>x.job==='daily').body,/Happy Birthday, Mpumelelo/);
  assert.match(messages.find(x=>x.job==='meeting_agenda').body,/Planning/);
  assert.doesNotMatch(messages.find(x=>x.job==='meeting_agenda').body,/Bible study/);
 });
