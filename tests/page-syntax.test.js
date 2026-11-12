@@ -54,3 +54,20 @@ test('admin edit and publish buttons have direct click handlers', () => {
   assert.match(PAGE, /\/publication/);
   assert.doesNotMatch(PAGE, /app\.onclick=async e=>/);
 });
+
+test('recent updates list future events before older event dates', () => {
+  assert.match(PAGE, /upcomingChanges=updates\.filter\(item=>item\.date>=today\)\.sort\(eventOrder\)/);
+  assert.match(PAGE, /Upcoming events to prepare/);
+  assert.match(PAGE, /Other recent changes/);
+});
+
+test('public and admin pages include the small Datatech copyright footer', () => {
+  assert.match(PAGE, /Copyright © Datatech/);
+  assert.match(PAGE, /site-footer/);
+});
+
+test('admin page groups audit entries by organiser and lists field changes', () => {
+  assert.match(PAGE, /renderAuditHistory\(auditEntries\)/);
+  assert.match(PAGE, /made changes/);
+  assert.match(PAGE, /change\.field/);
+});
