@@ -34,10 +34,11 @@ test('the static homepage stays in sync with the Worker calendar page', async ()
   assert.equal(asset, PAGE, 'public/index.html must match the Worker PAGE source');
 });
 
-test('public calendar shows a 24-hour recent-updates feed', () => {
-  assert.match(PAGE, /Updates in the last 24 hours/);
-  assert.match(PAGE, /api\('\/updates'\)/);
-  assert.match(PAGE, /Recently added or edited activities/);
+test('public calendar no longer displays the 24-hour recent-updates feed', () => {
+  assert.doesNotMatch(PAGE, /Updates in the last 24 hours/);
+  assert.doesNotMatch(PAGE, /api\('\/updates'\)/);
+  assert.doesNotMatch(PAGE, /Recently added or edited activities/);
+  assert.doesNotMatch(PAGE, /recent-updates/);
 });
 
 
@@ -55,10 +56,11 @@ test('admin edit and publish buttons have direct click handlers', () => {
   assert.doesNotMatch(PAGE, /app\.onclick=async e=>/);
 });
 
-test('recent updates list future events before older event dates', () => {
-  assert.match(PAGE, /upcomingChanges=updates\.filter\(item=>item\.date>=today\)\.sort\(eventOrder\)/);
-  assert.match(PAGE, /Upcoming events to prepare/);
-  assert.match(PAGE, /Other recent changes/);
+test('public calendar shows only the six nearest upcoming events', () => {
+  assert.match(PAGE, /future=upcomingEvents\.filter\(e=>e\.date>=today\)\.sort/);
+  assert.match(PAGE, /six=future\.slice\(0,6\)/);
+  assert.match(PAGE, /Next 6 upcoming events/);
+  assert.doesNotMatch(PAGE, /upcomingChanges|pastChanges/);
 });
 
 test('public and admin pages include the small Datatech copyright footer', () => {
