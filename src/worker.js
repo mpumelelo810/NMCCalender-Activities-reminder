@@ -34,6 +34,18 @@ async function api(req,env,url){
   await audit(env,phone,'bootstrap_administrator',phone);
   return json({ok:true,message:'Administrator account created. You can now sign in.'},201);
  }
+ if(p==='/api/updates'&&m==='GET'){
+  const since=new Date(Date.now()-24*60*60*1000).toISOString();
+  const {results}=await env.DB.prepare(`
+   SELECT id,title,date,start_time,end_time,location,description,category,event_type,all_day,
+    CASE WHEN created_at>=? THEN 'Added' ELSE 'Updated' END AS change_type,
+    CASE WHEN updated_at>created_at THEN updated_at ELSE created_at END AS changed_at
+   FROM events
+   WHERE published=1 AND cancelled=0 AND (created_at>=? OR updated_at>=?)
+   ORDER BY changed_at DESC LIMIT 30
+  `).bind(since,since,since).all();
+  return json(results,200,{'cache-control':'public, max-age=30'});
+ }
  if(p==='/api/events'&&m==='GET'){
   const today=sastDate(new Date()),requestedFrom=url.searchParams.get('from')||today;
   const from=validDate(requestedFrom)?requestedFrom:today,requestedTo=url.searchParams.get('to');
@@ -85,16 +97,19 @@ async function api(req,env,url){
  }
  const x=p.match(/^\/api\/admin\/events\/([0-9a-f-]{36})$/);
  if(x&&m==='PUT'){
-  const body=await req.json().catch(()=>({}));
+  const supplied=await req.json().catch(()=>({}));
+  const prior=await env.DB.prepare('SELECT * FROM events WHERE id=?').bind(x[1]).first();
+  if(!prior)return json({error:'Not found.'},404);
+  const body={...prior,...supplied};
   if(who.role!=='administrator'){
-   const prior=await env.DB.prepare('SELECT start_time,end_time,all_day FROM events WHERE id=?').bind(x[1]).first();
-   if(!prior)return json({error:'Not found.'},404);
-   const requestedAllDay=body.all_day===undefined?Boolean(prior.all_day):(body.all_day===true||body.all_day===1||body.all_day==='1'||body.all_day==='true');
-   if(String(body.start_time??prior.start_time)!==String(prior.start_time)||String(body.end_time??prior.end_time)!==String(prior.end_time)||requestedAllDay!==Boolean(prior.all_day))return json({error:'Only an Administrator can change event times or the all-day setting.'},403);
+   const requestedAllDay=body.all_day===true||body.all_day===1||body.all_day==='1'||body.all_day==='true';
+   if(String(body.start_time??'')!==String(prior.start_time??'')||String(body.end_time??'')!==String(prior.end_time??'')||requestedAllDay!==Boolean(prior.all_day))return json({error:'Only an Administrator can change event times or the all-day setting.'},403);
   }
   const v=validateEvent(body);if(!v.ok)return json({errors:v.errors},400);const e=v.value;
   const r=await env.DB.prepare('UPDATE events SET title=?,date=?,start_time=?,end_time=?,location=?,description=?,category=?,event_type=?,all_day=?,published=?,cancelled=?,updated_at=? WHERE id=?').bind(e.title,e.date,e.start_time,e.end_time,e.location,e.description,e.category,e.event_type,e.all_day,e.published,e.cancelled,now(),x[1]).run();
-  if(!r.meta.changes)return json({error:'Not found.'},404);await audit(env,who.admin_id,'update_event',x[1]);return json({ok:true});
+  if(!r.meta.changes)return json({error:'Not found.'},404);
+  const action=Number(prior.published)===1&&e.published===0?'unpublish_event':Number(prior.published)===0&&e.published===1?'publish_event':'update_event';
+  await audit(env,who.admin_id,action,x[1]);return json({ok:true});
  }
  if(x&&m==='DELETE'){
   if((await req.json().catch(()=>({}))).confirm!==x[1])return json({error:'Explicit confirmation of this event ID is required.'},400);
