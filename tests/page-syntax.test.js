@@ -47,3 +47,10 @@ test('admin event actions use robust delegated button handling', () => {
   assert.match(PAGE, /type="button" class="btn secondary" data-edit=/);
   assert.match(PAGE, /type="button" class="btn secondary" data-pub=/);
 });
+
+test('admin event actions bind directly to the rendered buttons', () => {
+  assert.match(PAGE, /bindAction\('button\[data-edit\]'/);
+  assert.match(PAGE, /bindAction\('button\[data-pub\]'/);
+  assert.match(PAGE, /\/publication/);
+  assert.doesNotMatch(PAGE, /app\.onclick=async e=>/);
+});
