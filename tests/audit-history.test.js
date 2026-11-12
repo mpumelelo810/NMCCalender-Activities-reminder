@@ -17,3 +17,8 @@ test('event changes are recorded with field-level before and after values', () =
   assert.match(source, /Public status/);
   assert.match(source, /details\?JSON\.stringify\(details\):null/);
 });
+
+test('publish and unpublish audit records include the activity title and date', () => {
+  assert.match(source, /SELECT id,published,title,date FROM events WHERE id=\?/);
+  assert.match(source, /title:prior\.title,date:prior\.date/);
+});
