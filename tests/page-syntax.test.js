@@ -40,15 +40,15 @@ test('public calendar shows a 24-hour recent-updates feed', () => {
   assert.match(PAGE, /Recently added or edited activities/);
 });
 
-test('admin event actions use robust delegated button handling', () => {
-  assert.match(PAGE, /e\.target\.closest\('button\[data-user\]/);
-  assert.match(PAGE, /data-edit=/);
-  assert.match(PAGE, /data-pub=/);
-  assert.match(PAGE, /type="button" class="btn secondary" data-edit=/);
-  assert.match(PAGE, /type="button" class="btn secondary" data-pub=/);
-});
 
 test('admin event actions bind directly to the rendered buttons', () => {
+  assert.match(PAGE, /bindAction\('button\[data-edit\]'/);
+  assert.match(PAGE, /bindAction\('button\[data-pub\]'/);
+  assert.match(PAGE, /\/publication/);
+  assert.doesNotMatch(PAGE, /app\.onclick=async e=>/);
+});
+
+test('admin edit and publish buttons have direct click handlers', () => {
   assert.match(PAGE, /bindAction\('button\[data-edit\]'/);
   assert.match(PAGE, /bindAction\('button\[data-pub\]'/);
   assert.match(PAGE, /\/publication/);
