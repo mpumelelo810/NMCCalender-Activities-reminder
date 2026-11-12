@@ -126,7 +126,7 @@ async function api(req,env,url){
  if(publicationPath&&m==='PATCH'){
   const body=await req.json().catch(()=>({}));
   if(typeof body.published!=='boolean')return json({error:'Choose whether this activity should be published.'},400);
-  const prior=await env.DB.prepare('SELECT id,published FROM events WHERE id=?').bind(publicationPath[1]).first();
+  const prior=await env.DB.prepare('SELECT id,published,title,date FROM events WHERE id=?').bind(publicationPath[1]).first();
   if(!prior)return json({error:'Activity not found.'},404);
   const published=body.published?1:0,t=now();
   const result=await env.DB.prepare('UPDATE events SET published=?,updated_at=? WHERE id=?').bind(published,t,publicationPath[1]).run();
