@@ -60,5 +60,7 @@ bindAction('button[data-type-save]',async button=>{const id=button.dataset.typeS
 bindAction('button[data-edit]',async button=>{const record=events.find(item=>String(item.id)===String(button.dataset.edit));if(!record)throw new Error('This activity could not be found. Refresh the page and try again.');await admin(record)});
 bindAction('button[data-pub]',async button=>{const id=button.dataset.pub,record=events.find(item=>String(item.id)===String(id));if(!record)throw new Error('This activity could not be found. Refresh the page and try again.');const publish=Number(record.published)!==1;await api('/admin/events/'+encodeURIComponent(id)+'/publication',{method:'PATCH',body:{published:publish}});await admin()});
 bindAction('button[data-del]',async button=>{const record=events.find(item=>String(item.id)===String(button.dataset.del));if(!record)throw new Error('This activity could not be found. Refresh the page and try again.');if(confirm('Delete “'+record.title+'” on '+record.date+'? This cannot be undone.')){await api('/admin/events/'+encodeURIComponent(record.id),{method:'DELETE',body:{confirm:record.id}});await admin()}});
+}
+
 const route=()=>location.hash==='#admin'?admin():location.hash==='#setup'?setup():pub();addEventListener('hashchange',route);route();
 </script></main></body></html>
