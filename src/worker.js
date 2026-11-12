@@ -6,7 +6,20 @@ const json=(data,status=200,headers={})=>new Response(JSON.stringify(data),{stat
 const hex=async s=>[...new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(s)))].map(x=>x.toString(16).padStart(2,'0')).join('');
 const cookie=(req,name)=>{const v=(req.headers.get('cookie')||'').split(/;\s*/).find(x=>x.startsWith(name+'='));return v?v.slice(name.length+1):null;};
 async function admin(req,env){const t=cookie(req,'sid');if(!t||!/^[a-f0-9]{64}$/.test(t))return null;return env.DB.prepare('SELECT s.admin_id,a.phone,a.name,a.role FROM sessions s JOIN admins a ON a.id=s.admin_id WHERE s.token_hash=? AND s.expires_at>? AND a.active=1').bind(await hex(t),now()).first();}
-async function audit(env,a,action,target){await env.DB.prepare('INSERT INTO audit(admin_id,action,target,at) VALUES(?,?,?,?)').bind(a,action,target,now()).run();}
+async function audit(env,a,action,target,details=null){await env.DB.prepare('INSERT INTO audit(admin_id,action,target,at,details) VALUES(?,?,?,?,?)').bind(a,action,target,now(),details?JSON.stringify(details):null).run();}
+const eventChangeFields=[
+ ['title','Title'],['date','Activity date'],['start_time','Start time'],['end_time','End time'],
+ ['all_day','Schedule'],['location','Location'],['description','Description'],['event_type','Event type'],
+ ['published','Public status'],['cancelled','Cancellation status']
+];
+const auditEventValue=(field,value)=>{
+ if(value===null||value===undefined||value==='')return '—';
+ if(field==='all_day')return Number(value)===1?'All day':'Timed';
+ if(field==='published')return Number(value)===1?'Published':'Unpublished';
+ if(field==='cancelled')return Number(value)===1?'Cancelled':'Active';
+ if(field==='event_type')return ({birthday:'Birthday',activity:'Session / Activity',meeting:'Committee meeting'})[value]||String(value);
+ return String(value).length>180?String(value).slice(0,177)+'…':String(value);
+};
 async function loginThrottle(req,env){const ip=req.headers.get('cf-connecting-ip')||'unknown',key=await hex(ip),time=Date.now(),row=await env.DB.prepare('SELECT attempts,window_started_at FROM login_attempts WHERE key=?').bind(key).first();if(!row)return {key,blocked:false};const start=Date.parse(row.window_started_at);if(!Number.isFinite(start)||time-start>=15*60*1000)return {key,blocked:false};return {key,blocked:row.attempts>=5};}
 async function recordLoginFailure(env,key){const t=now(),row=await env.DB.prepare('SELECT attempts,window_started_at FROM login_attempts WHERE key=?').bind(key).first();if(!row){await env.DB.prepare('INSERT INTO login_attempts(key,attempts,window_started_at) VALUES(?,1,?)').bind(key,t).run();return;}if(Date.now()-Date.parse(row.window_started_at)>=15*60*1000){await env.DB.prepare('UPDATE login_attempts SET attempts=1,window_started_at=? WHERE key=?').bind(t,key).run();}else{await env.DB.prepare('UPDATE login_attempts SET attempts=attempts+1 WHERE key=?').bind(key).run();}}
 async function api(req,env,url){
@@ -70,6 +83,20 @@ async function api(req,env,url){
   return json({ok:true},200,{'set-cookie':`sid=${t}; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=43200`});
  }
  const who=await admin(req,env);if(!who)return json({error:'Sign in required.'},401);
+ if(p==='/api/admin/activity-log'&&m==='GET'){
+  const since=new Date(Date.now()-24*60*60*1000).toISOString();
+  const {results}=await env.DB.prepare(`
+   SELECT a.id,a.action,a.target,a.details,a.at,
+    COALESCE(NULLIF(u.name,''),'An organiser') AS actor_name,
+    e.title AS event_title,e.date AS event_date
+   FROM audit a
+   LEFT JOIN admins u ON u.id=a.admin_id
+   LEFT JOIN events e ON e.id=a.target
+   WHERE a.at>=?
+   ORDER BY a.at DESC LIMIT 100
+  `).bind(since).all();
+  return json(results);
+ }
  if(p==='/api/logout'&&m==='POST'){const t=cookie(req,'sid');if(t)await env.DB.prepare('DELETE FROM sessions WHERE token_hash=?').bind(await hex(t)).run();return json({ok:true},200,{'set-cookie':'sid=; Max-Age=0; Path=/; HttpOnly; Secure; SameSite=Strict'});}
  if(p==='/api/admin/events'&&m==='GET')return json((await env.DB.prepare('SELECT * FROM events ORDER BY date DESC,start_time LIMIT 500').all()).results);
  if(p==='/api/me'&&m==='GET')return json({phone:who.phone,name:who.name,role:who.role});
@@ -93,7 +120,7 @@ async function api(req,env,url){
  if(p==='/api/admin/events'&&m==='POST'){
   const v=validateEvent(await req.json().catch(()=>({})));if(!v.ok)return json({errors:v.errors},400);const id=crypto.randomUUID(),e=v.value,t=now();
   await env.DB.prepare('INSERT INTO events(id,title,date,start_time,end_time,location,description,category,event_type,all_day,published,cancelled,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)').bind(id,e.title,e.date,e.start_time,e.end_time,e.location,e.description,e.category,e.event_type,e.all_day,e.published,e.cancelled,t,t).run();
-  await audit(env,who.admin_id,'create_event',id);return json({id},201);
+  await audit(env,who.admin_id,'create_event',id,{title:e.title,date:e.date,summary:'Added a new calendar activity',changes:[{field:'Title',from:'—',to:e.title},{field:'Activity date',from:'—',to:e.date},{field:'Event type',from:'—',to:e.event_type}]});return json({id},201);
  }
  const publicationPath=p.match(/^\/api\/admin\/events\/([0-9a-f-]{36})\/publication$/);
  if(publicationPath&&m==='PATCH'){
@@ -104,7 +131,7 @@ async function api(req,env,url){
   const published=body.published?1:0,t=now();
   const result=await env.DB.prepare('UPDATE events SET published=?,updated_at=? WHERE id=?').bind(published,t,publicationPath[1]).run();
   if(!result.meta.changes)return json({error:'Activity could not be updated.'},404);
-  if(Number(prior.published)!==published)await audit(env,who.admin_id,published?'publish_event':'unpublish_event',publicationPath[1]);
+  if(Number(prior.published)!==published)await audit(env,who.admin_id,published?'publish_event':'unpublish_event',publicationPath[1],{title:prior.title,date:prior.date,summary:published?'Published the activity to the public calendar':'Removed the activity from the public calendar',changes:[{field:'Public status',from:Number(prior.published)===1?'Published':'Unpublished',to:published===1?'Published':'Unpublished'}]});
   return json({ok:true,published:published===1,updated_at:t});
  }
  const x=p.match(/^\/api\/admin\/events\/([0-9a-f-]{36})$/);
@@ -121,11 +148,12 @@ async function api(req,env,url){
   const r=await env.DB.prepare('UPDATE events SET title=?,date=?,start_time=?,end_time=?,location=?,description=?,category=?,event_type=?,all_day=?,published=?,cancelled=?,updated_at=? WHERE id=?').bind(e.title,e.date,e.start_time,e.end_time,e.location,e.description,e.category,e.event_type,e.all_day,e.published,e.cancelled,now(),x[1]).run();
   if(!r.meta.changes)return json({error:'Not found.'},404);
   const action=Number(prior.published)===1&&e.published===0?'unpublish_event':Number(prior.published)===0&&e.published===1?'publish_event':'update_event';
-  await audit(env,who.admin_id,action,x[1]);return json({ok:true});
+  const changes=eventChangeFields.filter(([field])=>String(prior[field]??'')!==String(e[field]??'')).map(([field,label])=>({field:label,from:auditEventValue(field,prior[field]),to:auditEventValue(field,e[field])}));
+  await audit(env,who.admin_id,action,x[1],{title:e.title,date:e.date,summary:changes.length?'Updated activity details':'Saved the activity without changing its details',changes});return json({ok:true});
  }
  if(x&&m==='DELETE'){
   if((await req.json().catch(()=>({}))).confirm!==x[1])return json({error:'Explicit confirmation of this event ID is required.'},400);
-  const r=await env.DB.prepare('DELETE FROM events WHERE id=?').bind(x[1]).run();if(!r.meta.changes)return json({error:'Not found.'},404);await audit(env,who.admin_id,'delete_event',x[1]);return json({ok:true});
+  const prior=await env.DB.prepare('SELECT title,date FROM events WHERE id=?').bind(x[1]).first();if(!prior)return json({error:'Not found.'},404);const r=await env.DB.prepare('DELETE FROM events WHERE id=?').bind(x[1]).run();if(!r.meta.changes)return json({error:'Not found.'},404);await audit(env,who.admin_id,'delete_event',x[1],{title:prior.title,date:prior.date,summary:'Deleted the activity',changes:[{field:'Activity',from:prior.title,to:'Deleted'}]});return json({ok:true});
  }
  return json({error:'Not found.'},404);
 }
