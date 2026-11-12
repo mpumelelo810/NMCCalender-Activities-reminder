@@ -95,6 +95,18 @@ async function api(req,env,url){
   await env.DB.prepare('INSERT INTO events(id,title,date,start_time,end_time,location,description,category,event_type,all_day,published,cancelled,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)').bind(id,e.title,e.date,e.start_time,e.end_time,e.location,e.description,e.category,e.event_type,e.all_day,e.published,e.cancelled,t,t).run();
   await audit(env,who.admin_id,'create_event',id);return json({id},201);
  }
+ const publicationPath=p.match(/^\/api\/admin\/events\/([0-9a-f-]{36})\/publication$/);
+ if(publicationPath&&m==='PATCH'){
+  const body=await req.json().catch(()=>({}));
+  if(typeof body.published!=='boolean')return json({error:'Choose whether this activity should be published.'},400);
+  const prior=await env.DB.prepare('SELECT id,published FROM events WHERE id=?').bind(publicationPath[1]).first();
+  if(!prior)return json({error:'Activity not found.'},404);
+  const published=body.published?1:0,t=now();
+  const result=await env.DB.prepare('UPDATE events SET published=?,updated_at=? WHERE id=?').bind(published,t,publicationPath[1]).run();
+  if(!result.meta.changes)return json({error:'Activity could not be updated.'},404);
+  if(Number(prior.published)!==published)await audit(env,who.admin_id,published?'publish_event':'unpublish_event',publicationPath[1]);
+  return json({ok:true,published:published===1,updated_at:t});
+ }
  const x=p.match(/^\/api\/admin\/events\/([0-9a-f-]{36})$/);
  if(x&&m==='PUT'){
   const supplied=await req.json().catch(()=>({}));
