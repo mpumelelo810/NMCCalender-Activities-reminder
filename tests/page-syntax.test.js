@@ -33,3 +33,17 @@ test('the static homepage stays in sync with the Worker calendar page', async ()
   const asset = await readFile(assetPath, 'utf8');
   assert.equal(asset, PAGE, 'public/index.html must match the Worker PAGE source');
 });
+
+test('public calendar shows a 24-hour recent-updates feed', () => {
+  assert.match(PAGE, /Updates in the last 24 hours/);
+  assert.match(PAGE, /api\('\/updates'\)/);
+  assert.match(PAGE, /Recently added or edited activities/);
+});
+
+test('admin event actions use robust delegated button handling', () => {
+  assert.match(PAGE, /e\.target\.closest\('button\[data-user\]/);
+  assert.match(PAGE, /data-edit=/);
+  assert.match(PAGE, /data-pub=/);
+  assert.match(PAGE, /type="button" class="btn secondary" data-edit=/);
+  assert.match(PAGE, /type="button" class="btn secondary" data-pub=/);
+});
